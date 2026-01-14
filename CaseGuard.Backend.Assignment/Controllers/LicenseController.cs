@@ -3,6 +3,7 @@ using CaseGuard.Backend.Assignment.Contracts.Licenses.Responses;
 using CaseGuard.Backend.Assignment.Data;
 using CaseGuard.Backend.Assignment.Entities;
 using CaseGuard.Backend.Assignment.Exceptions;
+using CaseGuard.Backend.Assignment.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,13 +20,16 @@ public class LicenseController : BaseController
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly ILogger<LicenseController> _logger;
+    private readonly ILicenseExpirationService _expirationService;
 
     public LicenseController(
         ApplicationDbContext dbContext,
-        ILogger<LicenseController> logger)
+        ILogger<LicenseController> logger,
+        ILicenseExpirationService expirationService)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _expirationService = expirationService;
     }
 
     /// <summary>
@@ -139,6 +143,9 @@ public class LicenseController : BaseController
 
         try
         {
+            // Check and invalidate expired licenses before querying
+            await _expirationService.InvalidateExpiredLicensesAsync();
+
             // Build query
             var query = _dbContext.Licenses
                 .Include(l => l.Organization)
@@ -281,6 +288,9 @@ public class LicenseController : BaseController
     {
         try
         {
+            // Check and invalidate expired licenses before querying
+            await _expirationService.InvalidateExpiredLicensesAsync();
+
             var license = await _dbContext.Licenses
                 .Include(l => l.Organization)
                 .FirstOrDefaultAsync(l => l.Id == id);
@@ -394,6 +404,34 @@ public class LicenseController : BaseController
         {
             _logger.LogError(ex, "Error updating license {LicenseId}", id);
             throw new BadRequestException("Failed to update license. Please check your input and try again.");
+        }
+    }
+
+    /// <summary>
+    /// Checks and invalidates expired licenses.
+    /// This endpoint manually triggers the expiration check process.
+    /// </summary>
+    /// <returns>Number of licenses that were invalidated.</returns>
+    /// <response code="200">Expiration check completed successfully.</response>
+    /// <response code="403">If the user is not an admin.</response>
+    [HttpPost("check-expiration")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CheckAndInvalidateExpiredLicenses()
+    {
+        try
+        {
+            var invalidatedCount = await _expirationService.InvalidateExpiredLicensesAsync();
+
+            _logger.LogInformation("Expiration check completed by admin {AdminId}. Invalidated {Count} license(s).",
+                CurrentUserId, invalidatedCount);
+
+            return Ok(new { InvalidatedCount = invalidatedCount, Message = $"Invalidated {invalidatedCount} expired license(s)." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking license expiration");
+            throw new BadRequestException("Failed to check license expiration. Please try again.");
         }
     }
 

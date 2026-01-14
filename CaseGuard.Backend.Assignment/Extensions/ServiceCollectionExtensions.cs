@@ -49,6 +49,15 @@ public static class ServiceCollectionExtensions
         // Register JWT token service
         services.AddScoped<Services.IJwtTokenService, Services.JwtTokenService>();
         
+        // Register license expiration service
+        services.AddScoped<Services.ILicenseExpirationService, Services.LicenseExpirationService>();
+        
+        // Register license renewal service
+        services.AddScoped<Services.ILicenseRenewalService, Services.LicenseRenewalService>();
+        
+        // Register background services
+        services.AddHostedService<Services.LicenseRenewalBackgroundService>();
+        
         // Additional services will be registered here as they are created
         // Example: services.AddScoped<IOrganizationService, OrganizationService>();
         

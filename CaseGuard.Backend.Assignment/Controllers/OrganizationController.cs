@@ -207,22 +207,36 @@ public class OrganizationController : BaseController
             // Get member counts and active license counts for each organization
             var organizationIds = organizations.Select(o => o.Id).ToList();
 
-            var memberCounts = await _dbContext.OrganizationMembers
-                .Where(om => organizationIds.Contains(om.OrganizationId))
-                .GroupBy(om => om.OrganizationId)
-                .Select(g => new { OrganizationId = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.OrganizationId, x => x.Count);
+            Dictionary<Guid, int> memberCounts;
+            Dictionary<Guid, int> activeLicenseCounts;
+            Dictionary<Guid, string> userMemberships;
 
-            var activeLicenseCounts = await _dbContext.Licenses
-                .Where(l => organizationIds.Contains(l.OrganizationId) && l.IsActive && l.IsValid)
-                .GroupBy(l => l.OrganizationId)
-                .Select(g => new { OrganizationId = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.OrganizationId, x => x.Count);
+            if (organizationIds.Count == 0)
+            {
+                // If no organizations, return empty dictionaries
+                memberCounts = new Dictionary<Guid, int>();
+                activeLicenseCounts = new Dictionary<Guid, int>();
+                userMemberships = new Dictionary<Guid, string>();
+            }
+            else
+            {
+                memberCounts = await _dbContext.OrganizationMembers
+                    .Where(om => organizationIds.Contains(om.OrganizationId))
+                    .GroupBy(om => om.OrganizationId)
+                    .Select(g => new { OrganizationId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.OrganizationId, x => x.Count);
 
-            // Get user's role in each organization
-            var userMemberships = await _dbContext.OrganizationMembers
-                .Where(om => om.UserId == CurrentUserIdGuid && organizationIds.Contains(om.OrganizationId))
-                .ToDictionaryAsync(om => om.OrganizationId, om => om.Role);
+                activeLicenseCounts = await _dbContext.Licenses
+                    .Where(l => organizationIds.Contains(l.OrganizationId) && l.IsActive && l.IsValid)
+                    .GroupBy(l => l.OrganizationId)
+                    .Select(g => new { OrganizationId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.OrganizationId, x => x.Count);
+
+                // Get user's role in each organization
+                userMemberships = await _dbContext.OrganizationMembers
+                    .Where(om => om.UserId == CurrentUserIdGuid && organizationIds.Contains(om.OrganizationId))
+                    .ToDictionaryAsync(om => om.OrganizationId, om => om.Role);
+            }
 
             // Map to response DTOs
             var organizationResponses = organizations.Select(org =>
