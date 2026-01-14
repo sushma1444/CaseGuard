@@ -52,10 +52,21 @@ public class UserController : BaseController
 
         try
         {
+            // Get user ID first - this will throw UnauthorizedException if claims are invalid
+            Guid currentUserId;
+            try
+            {
+                currentUserId = CurrentUserIdGuid;
+            }
+            catch (UnauthorizedException)
+            {
+                throw; // Re-throw to return 401
+            }
+            
             // Get user's organization memberships
             var query = _dbContext.OrganizationMembers
                 .Include(om => om.Organization)
-                .Where(om => om.UserId == CurrentUserIdGuid)
+                .Where(om => om.UserId == currentUserId)
                 .AsQueryable();
 
             // Apply role filter if provided
@@ -131,9 +142,10 @@ public class UserController : BaseController
                     .ToDictionaryAsync(x => x.OrganizationId, x => x.Count);
 
                 // Get user's assigned license counts for each organization
+                var currentUserIdForLicenses = CurrentUserIdGuid;
                 userLicenseCounts = await _dbContext.LicenseAssignments
                     .Include(la => la.License)
-                    .Where(la => la.UserId == CurrentUserIdGuid && 
+                    .Where(la => la.UserId == currentUserIdForLicenses && 
                                 la.UnassignedAt == null &&
                                 organizationIds.Contains(la.License.OrganizationId))
                     .GroupBy(la => la.License.OrganizationId)

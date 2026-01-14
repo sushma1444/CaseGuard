@@ -156,12 +156,13 @@ if ($response.Success -and $response.StatusCode -eq 200 -and $response.Content.t
 
     # Test 1.2: Get Claims
 if ($adminToken) {
-    # Use the correct route based on controller route attribute
+    # Try both route variations (ASP.NET Core routes are case-insensitive, but try both)
     $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Auth/claims" -Token $adminToken
     if (-not $response.Success -or $response.StatusCode -ne 200) {
         # Try lowercase version as fallback
         $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/auth/claims" -Token $adminToken
     }
+    # If still failing, the token might not be valid - this is expected if token validation fails
     Write-TestResult -TestName "Get Claims" -Endpoint "/api/Auth/claims" -Method "GET" -StatusCode $response.StatusCode -Passed ($response.Success -and $response.StatusCode -eq 200)
 }
 

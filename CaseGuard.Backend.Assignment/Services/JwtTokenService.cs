@@ -40,6 +40,7 @@ public class JwtTokenService : IJwtTokenService
             new Claim(CustomClaimTypes.UserId, userId),
             new Claim(CustomClaimTypes.Email, email),
             new Claim(CustomClaimTypes.Role, role),
+            new Claim(System.Security.Claims.ClaimTypes.Role, role), // Add role claim for IsInRole to work
             new Claim(JwtRegisteredClaimNames.Sub, userId),
             new Claim(JwtRegisteredClaimNames.Email, email),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())

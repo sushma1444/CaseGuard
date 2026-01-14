@@ -51,9 +51,20 @@ public class OrganizationController : BaseController
 
         try
         {
+            // Get user ID first - this will throw UnauthorizedException if claims are invalid
+            Guid currentUserId;
+            try
+            {
+                currentUserId = CurrentUserIdGuid;
+            }
+            catch (UnauthorizedException)
+            {
+                throw; // Re-throw to return 401
+            }
+
             // Verify user exists before creating organization
             var userExists = await _dbContext.Users
-                .AnyAsync(u => u.Id == CurrentUserIdGuid);
+                .AnyAsync(u => u.Id == currentUserId);
 
             if (!userExists)
             {
@@ -85,7 +96,7 @@ public class OrganizationController : BaseController
             var membership = new OrganizationMember
             {
                 Id = Guid.NewGuid(),
-                UserId = CurrentUserIdGuid,
+                UserId = currentUserId,
                 OrganizationId = organization.Id,
                 Role = Roles.Owner,
                 JoinedAt = DateTime.UtcNow,
@@ -148,10 +159,23 @@ public class OrganizationController : BaseController
 
         try
         {
+            // Get user ID first - this will throw UnauthorizedException if claims are invalid
+            Guid currentUserId;
+            bool isAdmin;
+            try
+            {
+                currentUserId = CurrentUserIdGuid;
+                isAdmin = IsAdmin;
+            }
+            catch (UnauthorizedException)
+            {
+                throw; // Re-throw to return 401
+            }
+            
             IQueryable<Organization> query;
 
             // Admins can see all organizations
-            if (IsAdmin)
+            if (isAdmin)
             {
                 query = _dbContext.Organizations.AsQueryable();
             }
@@ -159,7 +183,7 @@ public class OrganizationController : BaseController
             {
                 // Regular users see only organizations they are members of
                 var userOrganizationIds = await _dbContext.OrganizationMembers
-                    .Where(om => om.UserId == CurrentUserIdGuid)
+                    .Where(om => om.UserId == currentUserId)
                     .Select(om => om.OrganizationId)
                     .ToListAsync();
 
@@ -255,8 +279,9 @@ public class OrganizationController : BaseController
                     .ToDictionaryAsync(x => x.OrganizationId, x => x.Count);
 
                 // Get user's role in each organization
+                var currentUserIdForMemberships = CurrentUserIdGuid;
                 userMemberships = await _dbContext.OrganizationMembers
-                    .Where(om => om.UserId == CurrentUserIdGuid && organizationIds.Contains(om.OrganizationId))
+                    .Where(om => om.UserId == currentUserIdForMemberships && organizationIds.Contains(om.OrganizationId))
                     .ToDictionaryAsync(om => om.OrganizationId, om => om.Role);
             }
 
