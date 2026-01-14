@@ -1,105 +1,114 @@
 ﻿# Automated Test Report - CaseGuard Backend API
-Generated: 2026-01-14 01:07:53
+Generated: 2026-01-14 15:04:30
 
 ## Summary
-- **Total Tests**: 17
-- **Passed**: 13
-- **Failed**: 4
-- **Pass Rate**: 76.47%
+- Total Tests: 18
+- Passed: 14
+- Failed: 4
+- Pass Rate: 77.78%
 
 ## Test Results
-### âœ… PASS - Login as Admin
-- **Endpoint**: POST /api/auth/login
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:52
 
-### âŒ FAIL - Get Claims
-- **Endpoint**: GET /api/auth/claims
-- **Status Code**: 401
-- **Time**: 2026-01-14 01:07:52
+### PASS - Login as Admin
+- Endpoint: POST /api/auth/login
+- Status Code: 200
+- Time: 2026-01-14 15:04:29
 
-### âœ… PASS - Login as Owner
-- **Endpoint**: POST /api/auth/login
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:52
+### FAIL - Get Claims
+- Endpoint: GET /api/Auth/claims
+- Status Code: 401
+- Time: 2026-01-14 15:04:29
 
-### âœ… PASS - Login as Member
-- **Endpoint**: POST /api/auth/login
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:52
+### PASS - Login as Owner
+- Endpoint: POST /api/auth/login
+- Status Code: 200
+- Time: 2026-01-14 15:04:29
 
-### âœ… PASS - Health Check
-- **Endpoint**: GET /api/health
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:52
+### PASS - Login as Member
+- Endpoint: POST /api/auth/login
+- Status Code: 200
+- Time: 2026-01-14 15:04:29
 
-### âŒ FAIL - Create License
-- **Endpoint**: POST /api/License
-- **Status Code**: 404
-- **Time**: 2026-01-14 01:07:53
+### PASS - Health Check
+- Endpoint: GET /api/health
+- Status Code: 200
+- Time: 2026-01-14 15:04:29
 
-### âœ… PASS - Get All Licenses
-- **Endpoint**: GET /api/License
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:53
+### PASS - Create License
+- Endpoint: POST /api/License
+- Status Code: 201
+- Time: 2026-01-14 15:04:30
 
-### âŒ FAIL - Get License by ID
-- **Endpoint**: GET /api/License/{id}
-- **Status Code**: 0
-- **Time**: 2026-01-14 01:07:53
-- **Message**: Skipped - no license ID
-### âœ… PASS - Admin Only - Non-Admin Access
-- **Endpoint**: POST /api/License
-- **Status Code**: 403
-- **Time**: 2026-01-14 01:07:53
+### PASS - Get All Licenses
+- Endpoint: GET /api/License
+- Status Code: 200
+- Time: 2026-01-14 15:04:30
 
-### âŒ FAIL - Create Organization
-- **Endpoint**: POST /api/Organization
-- **Status Code**: 400
-- **Time**: 2026-01-14 01:07:53
+### PASS - Get License by ID
+- Endpoint: GET /api/License/{id}
+- Status Code: 200
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Get All Organizations
-- **Endpoint**: GET /api/organization
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:53
+### PASS - Update License
+- Endpoint: PUT /api/License/{id}
+- Status Code: 200
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Get User Organizations
-- **Endpoint**: GET /api/user/organizations
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:53
+### PASS - Admin Only - Non-Admin Access
+- Endpoint: POST /api/License
+- Status Code: 403
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Pagination Support
-- **Endpoint**: GET /api/License
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:53
+### FAIL - Create Organization
+- Endpoint: POST /api/Organization
+- Status Code: 400
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Filtering Support
-- **Endpoint**: GET /api/License
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:53
+### FAIL - Get All Organizations
+- Endpoint: GET /api/organization
+- Status Code: 400
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Sorting Support
-- **Endpoint**: GET /api/License
-- **Status Code**: 200
-- **Time**: 2026-01-14 01:07:53
+### FAIL - Get User Organizations
+- Endpoint: GET /api/user/organizations
+- Status Code: 400
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Unauthorized Access
-- **Endpoint**: GET /api/License
-- **Status Code**: 401
-- **Time**: 2026-01-14 01:07:53
+### PASS - Pagination Support
+- Endpoint: GET /api/License
+- Status Code: 200
+- Time: 2026-01-14 15:04:30
 
-### âœ… PASS - Resource Not Found
-- **Endpoint**: GET /api/License/{id}
-- **Status Code**: 404
-- **Time**: 2026-01-14 01:07:53
+### PASS - Filtering Support
+- Endpoint: GET /api/License
+- Status Code: 200
+- Time: 2026-01-14 15:04:30
+
+### PASS - Sorting Support
+- Endpoint: GET /api/License
+- Status Code: 200
+- Time: 2026-01-14 15:04:30
+
+### PASS - Unauthorized Access
+- Endpoint: GET /api/License
+- Status Code: 401
+- Time: 2026-01-14 15:04:30
+
+### PASS - Resource Not Found
+- Endpoint: GET /api/License/{id}
+- Status Code: 404
+- Time: 2026-01-14 15:04:30
 
 
-## Endpoints Tested- POST /api/auth/login
-- GET /api/auth/claims
+## Endpoints Tested
+
+- POST /api/auth/login
+- GET /api/Auth/claims
 - GET /api/health
 - POST /api/License
 - GET /api/License
 - GET /api/License/{id}
+- PUT /api/License/{id}
 - POST /api/Organization
 - GET /api/organization
 - GET /api/user/organizations

@@ -34,7 +34,7 @@ function Write-TestResult {
     
     $script:testResults += $result
     
-    $status = if ($Passed) { "✅ PASS" } else { "❌ FAIL" }
+    $status = if ($Passed) { "PASS" } else { "FAIL" }
     Write-Host "$status - $TestName ($Method $Endpoint) - Status: $StatusCode" -ForegroundColor $(if ($Passed) { "Green" } else { "Red" })
     if ($Message) {
         Write-Host "  Message: $Message" -ForegroundColor Yellow
@@ -113,12 +113,26 @@ Write-Host ""
 # ============================================
 # 0. SETUP - Ensure test users exist
 # ============================================
-Write-Host "`n[0] Setting up test data..." -ForegroundColor Yellow
-Write-Host "  ⚠️  IMPORTANT: Test users must exist in the database!" -ForegroundColor Yellow
-Write-Host "  If tests fail with 400/404 errors, run:" -ForegroundColor Cyan
-Write-Host "    .\setup-test-data.ps1" -ForegroundColor White
-Write-Host "  OR manually:" -ForegroundColor Cyan
-Write-Host "    psql -U postgres -d CaseGuardDb -f test_data_setup.sql" -ForegroundColor White
+Write-Host "`n[0] Checking test data..." -ForegroundColor Yellow
+
+# Quick check if users exist (optional - won't fail if psql not available)
+try {
+    $env:PGPASSWORD = "postgres"
+    $userCount = & psql -h localhost -U postgres -d CaseGuardDb -t -c "SELECT COUNT(*) FROM \"Users\";" 2>&1 | Where-Object { $_ -match '^\s*\d+\s*$' }
+    $userCount = ($userCount -replace '\s', '').Trim()
+    Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+    
+    if ([int]$userCount -ge 6) {
+        Write-Host "  [OK] Found $userCount users in database" -ForegroundColor Green
+    } else {
+        Write-Host "  [WARN] Only $userCount users found (expected at least 6)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Some tests may fail. Run: .\setup-test-data.ps1" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  [WARN] Could not verify test data. If tests fail, run:" -ForegroundColor Yellow
+    Write-Host "     .\setup-test-data.ps1" -ForegroundColor White
+    Write-Host "  OR: .\setup-everything.ps1 (complete setup)" -ForegroundColor White
+}
 Write-Host ""
 
 # ============================================
@@ -142,12 +156,13 @@ if ($response.Success -and $response.StatusCode -eq 200 -and $response.Content.t
 
     # Test 1.2: Get Claims
 if ($adminToken) {
-    # Try both lowercase and capitalized versions
-    $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/auth/claims" -Token $adminToken
-    if (-not $response.Success) {
-        $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Auth/claims" -Token $adminToken
+    # Use the correct route based on controller route attribute
+    $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Auth/claims" -Token $adminToken
+    if (-not $response.Success -or $response.StatusCode -ne 200) {
+        # Try lowercase version as fallback
+        $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/auth/claims" -Token $adminToken
     }
-    Write-TestResult -TestName "Get Claims" -Endpoint "/api/auth/claims" -Method "GET" -StatusCode $response.StatusCode -Passed ($response.Success -and $response.StatusCode -eq 200)
+    Write-TestResult -TestName "Get Claims" -Endpoint "/api/Auth/claims" -Method "GET" -StatusCode $response.StatusCode -Passed ($response.Success -and $response.StatusCode -eq 200)
 }
 
 # Test 1.3: Login as Owner
@@ -187,35 +202,35 @@ Write-TestResult -TestName "Health Check" -Endpoint "/api/health" -Method "GET" 
 Write-Host "`n[3] Testing Admin Endpoints (LicenseController)..." -ForegroundColor Yellow
 
 if (-not $adminToken) {
-    Write-Host "  ⚠️  Skipping admin tests - no admin token" -ForegroundColor Yellow
+    Write-Host "  [WARN] Skipping admin tests - no admin token" -ForegroundColor Yellow
 } else {
     # Test 3.1: Create License
-    # First, try to get an existing organization or create one
+    # First, try to get an existing organization or use test data organization
     $orgId = $null
-    $orgResponse = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Organization" -Token $adminToken -QueryParams @{page=1; pageSize=1}
-    if ($orgResponse.Success -and $orgResponse.Content.Items -and $orgResponse.Content.Items.Count -gt 0) {
-        $orgId = $orgResponse.Content.Items[0].id
-        Write-Host "  ✅ Using existing organization: $orgId" -ForegroundColor Green
-    } else {
-        # Try to create an organization for the admin user
-        $orgBody = @{
-            name = "Test Org for License $(Get-Date -Format 'yyyyMMddHHmmss')"
-            description = "Created for license testing"
-        }
-        $orgResponse = Invoke-ApiRequest -Method "POST" -Endpoint "/api/Organization" -Body $orgBody -Token $adminToken
-        if ($orgResponse.Success -and $orgResponse.Content.id) {
-            $orgId = $orgResponse.Content.id
-            Write-Host "  ✅ Created organization for license: $orgId" -ForegroundColor Green
+    # Try to use test data organization first (most reliable)
+    $orgId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    Write-Host "  [INFO] Using test data organization: $orgId" -ForegroundColor Cyan
+    
+    # Verify organization exists by trying to get it
+    $verifyResponse = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Organization/$orgId" -Token $adminToken
+    if (-not $verifyResponse.Success -or $verifyResponse.StatusCode -eq 404) {
+        # Organization doesn't exist, try to get any existing organization
+        $orgResponse = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Organization" -Token $adminToken -QueryParams @{page=1; pageSize=1}
+        if ($orgResponse.Success -and $orgResponse.Content.Items -and $orgResponse.Content.Items.Count -gt 0) {
+            $orgId = $orgResponse.Content.Items[0].id
+            Write-Host "  [OK] Using existing organization: $orgId" -ForegroundColor Green
         } else {
-            # Fallback to test data organization ID
-            $orgId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-            Write-Host "  ⚠️  Using fallback organization ID (may not exist): $orgId" -ForegroundColor Yellow
+            Write-Host "  [WARN] No organizations found. License creation may fail." -ForegroundColor Yellow
         }
+    } else {
+        Write-Host "  [OK] Test data organization exists: $orgId" -ForegroundColor Green
     }
     
+    $timestamp = Get-Date -Format 'yyyyMMddHHmmssfff'
+    $random = Get-Random -Minimum 1000 -Maximum 9999
     $licenseBody = @{
         organizationId = $orgId
-        name = "Test License - Automated Test $(Get-Date -Format 'HHmmss')"
+        name = "AutoTest License $timestamp-$random"
         startDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         expirationDate = (Get-Date).AddYears(1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         autoRenewalEnabled = $true
@@ -224,9 +239,9 @@ if (-not $adminToken) {
     $passed = $response.Success -and $response.StatusCode -eq 201
     if ($passed -and $response.Content.id) {
         $createdLicenseId = $response.Content.id
-        Write-Host "  ✅ Created license: $createdLicenseId" -ForegroundColor Green
+        Write-Host "  [OK] Created license: $createdLicenseId" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠️  Error creating license: $($response.Error)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Error creating license: $($response.Error)" -ForegroundColor Yellow
         if ($response.Content) {
             $errorDetail = if ($response.Content.detail) { $response.Content.detail } else { ($response.Content | ConvertTo-Json) }
             Write-Host "  Detail: $errorDetail" -ForegroundColor Yellow
@@ -270,31 +285,36 @@ Write-Host "`n[4] Testing Organization Endpoints..." -ForegroundColor Yellow
 
 if ($ownerToken) {
     # Test 4.1: Create Organization
-    # Use a unique name to avoid conflicts
-    $uniqueName = "Test Org $(Get-Date -Format 'yyyyMMddHHmmss')"
+    # Use a highly unique name with timestamp and random number to avoid conflicts
+    $timestamp = Get-Date -Format 'yyyyMMddHHmmssfff'
+    $random = Get-Random -Minimum 1000 -Maximum 9999
+    $uniqueName = "AutoTest Org $timestamp-$random"
     $orgBody = @{
         name = $uniqueName
-        description = "Created by automated test script"
+        description = "Created by automated test script at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     }
     $response = Invoke-ApiRequest -Method "POST" -Endpoint "/api/Organization" -Body $orgBody -Token $ownerToken
     $passed = $response.Success -and $response.StatusCode -eq 201
     if ($passed -and $response.Content.id) {
         $createdOrgId = $response.Content.id
-        Write-Host "  ✅ Created organization: $createdOrgId" -ForegroundColor Green
+        Write-Host "  [OK] Created organization: $createdOrgId" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠️  Error creating organization: $($response.Error)" -ForegroundColor Yellow
+        Write-Host "  [WARN] Error creating organization: $($response.Error)" -ForegroundColor Yellow
         if ($response.Content) {
             $errorDetail = if ($response.Content.detail) { $response.Content.detail } else { ($response.Content | ConvertTo-Json) }
             Write-Host "  Detail: $errorDetail" -ForegroundColor Yellow
-            # If it's a name conflict, try with a different name
-            if ($errorDetail -like "*already exists*") {
-                $uniqueName = "Test Org $(Get-Date -Format 'yyyyMMddHHmmss')-$(Get-Random)"
+            # If it's a name conflict, try with a different name (shouldn't happen with timestamp+random, but just in case)
+            if ($errorDetail -like "*already exists*" -or $errorDetail -like "*duplicate*") {
+                $timestamp = Get-Date -Format 'yyyyMMddHHmmssfff'
+                $random = Get-Random -Minimum 10000 -Maximum 99999
+                $uniqueName = "AutoTest Org $timestamp-$random"
                 $orgBody.name = $uniqueName
+                Write-Host "  🔄 Retrying with new name: $uniqueName" -ForegroundColor Cyan
                 $response = Invoke-ApiRequest -Method "POST" -Endpoint "/api/Organization" -Body $orgBody -Token $ownerToken
                 $passed = $response.Success -and $response.StatusCode -eq 201
                 if ($passed -and $response.Content.id) {
                     $createdOrgId = $response.Content.id
-                    Write-Host "  ✅ Retry successful: Created organization: $createdOrgId" -ForegroundColor Green
+                    Write-Host "  [OK] Retry successful: Created organization: $createdOrgId" -ForegroundColor Green
                 }
             }
         }
@@ -469,36 +489,28 @@ Write-Host "Failed: $failedTests" -ForegroundColor $(if ($failedTests -eq 0) { "
 Write-Host "Pass Rate: $passRate%" -ForegroundColor $(if ($passRate -ge 80) { "Green" } else { "Yellow" })
 
 # Generate detailed report
-$report = @"
-# Automated Test Report - CaseGuard Backend API
-Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-
-## Summary
-- **Total Tests**: $totalTests
-- **Passed**: $passedTests
-- **Failed**: $failedTests
-- **Pass Rate**: $passRate%
-
-## Test Results
-
-"@
+$report = "# Automated Test Report - CaseGuard Backend API`n"
+$report += "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n`n"
+$report += "## Summary`n"
+$report += "- Total Tests: $totalTests`n"
+$report += "- Passed: $passedTests`n"
+$report += "- Failed: $failedTests`n"
+$report += "- Pass Rate: $passRate%`n`n"
+$report += "## Test Results`n`n"
 
 foreach ($result in $testResults) {
-    $status = if ($result.Passed) { "✅ PASS" } else { "❌ FAIL" }
-    $report += @"
-### $status - $($result.TestName)
-- **Endpoint**: $($result.Method) $($result.Endpoint)
-- **Status Code**: $($result.StatusCode)
-- **Time**: $($result.Timestamp)
-$(if ($result.Message) { "- **Message**: $($result.Message)" })
-
-"@
+    $status = if ($result.Passed) { "PASS" } else { "FAIL" }
+    $report += "### $status - $($result.TestName)`n"
+    $report += "- Endpoint: $($result.Method) $($result.Endpoint)`n"
+    $report += "- Status Code: $($result.StatusCode)`n"
+    $report += "- Time: $($result.Timestamp)`n"
+    if ($result.Message) {
+        $report += "- Message: $($result.Message)`n"
+    }
+    $report += "`n"
 }
 
-$report += @"
-
-## Endpoints Tested
-"@
+$report += "`n## Endpoints Tested`n`n"
 
 $endpoints = $testResults | Select-Object -Unique Endpoint, Method
 foreach ($endpoint in $endpoints) {
@@ -508,5 +520,5 @@ foreach ($endpoint in $endpoints) {
 $reportFile = "AUTOMATED_TEST_REPORT.md"
 $report | Out-File -FilePath $reportFile -Encoding UTF8
 
-Write-Host "`n✅ Detailed report saved to: $reportFile" -ForegroundColor Green
+Write-Host "`nDetailed report saved to: $reportFile" -ForegroundColor Green
 Write-Host "`nTest execution completed!" -ForegroundColor Cyan

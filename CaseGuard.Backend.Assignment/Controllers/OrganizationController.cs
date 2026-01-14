@@ -51,6 +51,15 @@ public class OrganizationController : BaseController
 
         try
         {
+            // Verify user exists before creating organization
+            var userExists = await _dbContext.Users
+                .AnyAsync(u => u.Id == CurrentUserIdGuid);
+
+            if (!userExists)
+            {
+                throw new BadRequestException("User not found. Please ensure you are properly authenticated.");
+            }
+
             // Check if organization name already exists
             var existingOrganization = await _dbContext.Organizations
                 .FirstOrDefaultAsync(o => o.Name.ToLower() == request.Name.ToLower());
@@ -106,6 +115,10 @@ public class OrganizationController : BaseController
         {
             throw;
         }
+        catch (UnauthorizedException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating organization");
@@ -150,8 +163,17 @@ public class OrganizationController : BaseController
                     .Select(om => om.OrganizationId)
                     .ToListAsync();
 
-                query = _dbContext.Organizations
-                    .Where(o => userOrganizationIds.Contains(o.Id));
+                // Handle empty list to avoid EF Core issues with Contains on empty collections
+                if (userOrganizationIds.Count == 0)
+                {
+                    // Return empty query result
+                    query = _dbContext.Organizations.Where(o => false);
+                }
+                else
+                {
+                    query = _dbContext.Organizations
+                        .Where(o => userOrganizationIds.Contains(o.Id));
+                }
             }
 
             // Apply name filter if provided
@@ -258,6 +280,10 @@ public class OrganizationController : BaseController
             return Ok(response);
         }
         catch (BadRequestException)
+        {
+            throw;
+        }
+        catch (UnauthorizedException)
         {
             throw;
         }

@@ -111,18 +111,11 @@ public class UserController : BaseController
             var organizationIds = memberships.Select(om => om.OrganizationId).ToList();
 
             // Get member counts for each organization
-            Dictionary<Guid, int> memberCounts;
-            Dictionary<Guid, int> activeLicenseCounts;
-            Dictionary<Guid, int> userLicenseCounts;
+            Dictionary<Guid, int> memberCounts = new Dictionary<Guid, int>();
+            Dictionary<Guid, int> activeLicenseCounts = new Dictionary<Guid, int>();
+            Dictionary<Guid, int> userLicenseCounts = new Dictionary<Guid, int>();
 
-            if (organizationIds.Count == 0)
-            {
-                // If no organizations, return empty dictionaries
-                memberCounts = new Dictionary<Guid, int>();
-                activeLicenseCounts = new Dictionary<Guid, int>();
-                userLicenseCounts = new Dictionary<Guid, int>();
-            }
-            else
+            if (organizationIds.Count > 0)
             {
                 memberCounts = await _dbContext.OrganizationMembers
                     .Where(om => organizationIds.Contains(om.OrganizationId))
@@ -168,6 +161,10 @@ public class UserController : BaseController
             return Ok(response);
         }
         catch (BadRequestException)
+        {
+            throw;
+        }
+        catch (UnauthorizedException)
         {
             throw;
         }
