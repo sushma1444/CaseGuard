@@ -90,7 +90,7 @@ app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "CaseGuard API v1");
-    options.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+    options.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
 });
 
 // Apply database migrations
