@@ -117,7 +117,7 @@ Write-Host "`n[0] Checking test data..." -ForegroundColor Yellow
 
 # Quick check if users exist (optional - won't fail if psql not available)
 try {
-    $env:PGPASSWORD = "postgres"
+    $env:PGPASSWORD = "sushma"
     $userCount = & psql -h localhost -U postgres -d CaseGuardDb -t -c "SELECT COUNT(*) FROM \"Users\";" 2>&1 | Where-Object { $_ -match '^\s*\d+\s*$' }
     $userCount = ($userCount -replace '\s', '').Trim()
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
@@ -154,16 +154,14 @@ if ($response.Success -and $response.StatusCode -eq 200 -and $response.Content.t
     Write-TestResult -TestName "Login as Admin" -Endpoint "/api/auth/login" -Method "POST" -StatusCode $response.StatusCode -Passed $false -Message "Failed to get token"
 }
 
-    # Test 1.2: Get Claims
+    # Test 1.2: Get Claims - expects 200 with valid token and existing user
 if ($adminToken) {
-    # Try both route variations (ASP.NET Core routes are case-insensitive, but try both)
     $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/Auth/claims" -Token $adminToken
     if (-not $response.Success -or $response.StatusCode -ne 200) {
-        # Try lowercase version as fallback
         $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/auth/claims" -Token $adminToken
     }
-    # If still failing, the token might not be valid - this is expected if token validation fails
-    Write-TestResult -TestName "Get Claims" -Endpoint "/api/Auth/claims" -Method "GET" -StatusCode $response.StatusCode -Passed ($response.Success -and $response.StatusCode -eq 200)
+    $passed = $response.StatusCode -eq 200
+    Write-TestResult -TestName "Get Claims" -Endpoint "/api/Auth/claims" -Method "GET" -StatusCode $response.StatusCode -Passed $passed
 }
 
 # Test 1.3: Login as Owner
@@ -322,9 +320,10 @@ if ($ownerToken) {
     }
     Write-TestResult -TestName "Create Organization" -Endpoint "/api/Organization" -Method "POST" -StatusCode $response.StatusCode -Passed $passed
     
-    # Test 4.2: Get All Organizations
+    # Test 4.2: Get All Organizations - expects 200 for successful retrieval
     $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/organization" -Token $ownerToken -QueryParams @{page=1; pageSize=10}
-    Write-TestResult -TestName "Get All Organizations" -Endpoint "/api/organization" -Method "GET" -StatusCode $response.StatusCode -Passed ($response.Success -and $response.StatusCode -eq 200)
+    $passed = $response.Success -and $response.StatusCode -eq 200
+    Write-TestResult -TestName "Get All Organizations" -Endpoint "/api/organization" -Method "GET" -StatusCode $response.StatusCode -Passed $passed
     
     # Test 4.3: Get Organization by ID
     if ($createdOrgId) {
@@ -425,9 +424,10 @@ if ($ownerToken -and $createdLicenseId -and $createdOrgId) {
 Write-Host "`n[8] Testing User Endpoints..." -ForegroundColor Yellow
 
 if ($memberToken) {
-    # Test 8.1: Get User Organizations
+    # Test 8.1: Get User Organizations - expects 200 for successful retrieval
     $response = Invoke-ApiRequest -Method "GET" -Endpoint "/api/user/organizations" -Token $memberToken -QueryParams @{page=1; pageSize=10}
-    Write-TestResult -TestName "Get User Organizations" -Endpoint "/api/user/organizations" -Method "GET" -StatusCode $response.StatusCode -Passed ($response.Success -and $response.StatusCode -eq 200)
+    $passed = $response.Success -and $response.StatusCode -eq 200
+    Write-TestResult -TestName "Get User Organizations" -Endpoint "/api/user/organizations" -Method "GET" -StatusCode $response.StatusCode -Passed $passed
     
     # Test 8.2: Get Organization Details (if user has orgs)
     if ($response.Success -and $response.Content.items -and $response.Content.items.Count -gt 0) {
